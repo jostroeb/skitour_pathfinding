@@ -1,0 +1,1 @@
+This is a project for computing optimal paths for skitours
