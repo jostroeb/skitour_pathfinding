@@ -34,5 +34,5 @@ def extractfiles(directory,amount = None,namereturn = None):
 if __name__ == "__main__":
     directory = input("Write directory without brackets e.g. [C:\Programs\Test]: ")
     amount = int(input("Export first x files without checking if they already exist: "))
-    extracted = extractfiles(directory,amount,True) 
+    extracted = extractfiles(directory,amount,True) # True will return a list of extracted files
     print(extracted)
