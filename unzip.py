@@ -9,7 +9,7 @@ def extractfiles(directory,amount = None):
     i = 0
     namelist = []
     if amount is not None:
-        amount = amount - 1
+        amount = amount - 1 7
     for f in listdir(directoryraw): # for all files in this directory
         name, ext = path.splitext(f)
         if ext == '.zip': # only use .zip files
@@ -35,16 +35,9 @@ def createcsv(fileslist):
             csv = path.join(filepath,filename) # create C:\...\test.csv
             with open(csv,'w') as csvfile:
                 namelist.extend([csv])
-                #i = 0
                 while True:
-                    #if i > 10: debugging option to only execute for first 10 lines
-                    #    print("b")
-                    #    break
-                    #i = i + 1
-                    #print(i)
                     content = text.readline() # reads single lines
                     content = content.replace(' ',';') # create commas for .csv
-                    #print(content)
                     if not content:
                         break # only inner while loop
                     csvfile.writelines(content) # writes each read line
