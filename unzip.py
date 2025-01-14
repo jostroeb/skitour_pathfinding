@@ -9,7 +9,7 @@ def extractfiles(directory,amount = None):
     i = 0
     namelist = []
     if amount is not None:
-        amount = amount - 1 7
+        amount = amount - 1
     for f in listdir(directoryraw): # for all files in this directory
         name, ext = path.splitext(f)
         if ext == '.zip': # only use .zip files
