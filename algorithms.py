@@ -172,38 +172,39 @@ class AStar:
         #avoid avalanche_ risk zone in g value examination
             return neighbourpos # find neighbours and add to openlist
     """
+
     def getkey(self, array): # converts array to tuple to make it hashable and therefore usable as a key in a dict
         arr = array[0:2]
         key = tuple(arr)
         return key
 
-    def getnodes(self, neighbourpositions, distances = None):
-        """check if position is existent in database, future implement to add a node, which is not traversable for improved efficiency"""
-        #implement node return with node.nontraversable = True for edgenodes
+    
+    # get traversable, non closed nodes, save nodes on edge to creatednodes
+    def getnodes(self, neighbourpositions, distances = None): 
         if distances == None: # for future implementation
             raise Exception("Give distances for grid data or implement a new getnodes function for e.g. vectordata (better extend the existing one)")
         nodelist = []
         distancelist = []
-        for i,neighbourpos in enumerate(neighbourpositions):
-            try: # try to find an existing node in creatednodes for this position value
+        for i,neighbourpos in enumerate(neighbourpositions): # position value for every move direction
+            try: # try to find an existing node in creatednodes for current position value
                 key = self.getkey(neighbourpos) # get key for lookup in dict
                 node = self.creatednodes[key] # lookup in dict
 
-            except: # create new node
+            except: # if no node was created before
                 try: # try find data in dataset
                     neighbourpos = self.dataset[(self.dataset[:, 0] == neighbourpos[0]) & (self.dataset[:, 1] == neighbourpos[1])][0] # finds [x,y,z] array for [x,y]
                     node = Node(neighbourpos) # add avalanche score and nontraversable
+
                 except: # otherwise create node with [x,y] and nontraversable = True to avoid lookup in dataset later
                     node = Node(neighbourpos,nontraversable=True)
                     key = self.getkey(neighbourpos)
                     self.creatednodes[key] = node # save non traversable node in creatednodes for avoiding lookup in datset
-                    #print(self.dataset[(self.dataset[:, 0] == neighbourpos[0]) & (self.dataset[:, 1] == neighbourpos[1])])
             if not (node.nontraversable or node.foundminf): # exception for already explored nodes
                 nodelist.append(node) # write traversable nodes in return list
             distancelist.append(distances[i])
         return nodelist, distancelist # distancelist has same length as node list and contains corresponding x,y distances
     
-    #finished
+    
     def tracepath(self,startnode: Node,endnode: Node) -> list: # follows path from end back to start through jumping to each nodes parent
         current = endnode
         tracepath = [current] # save list of nodes here
@@ -220,54 +221,32 @@ class AStar:
     def search(self, startpos: list|np.array, endpos: list|np.array) -> list: # main search algorithm
         startnode = self.closestnode(startpos) # returns closest point in x,y dimensions
         endnode = self.closestnode(endpos)
-        
         startnode.gscore = 0
         startnode.fscore = 0 # not really relevant as will be explored first anyways 
 
-        if startnode == endnode or startnode.nontraversable == True:
-            print("Start node not valid as either endnode or non traversable")
-            return
-
-        startnode.foundminf = True # avoids that startnode will be considered as neighbour later
-        #endnode.inopen = True
-        
-        self.openlist = Openlist() # create instance of openlist
-
-        current = startnode # add first node to openlist
-        #self.openlist.add(endnode)
-        key = self.getkey(current.pos)
-        # print("firstkey: " + str(firstkey))
-        self.creatednodes[key] = current
-        """run testtttttttttttttttttttttt to detect if .tobytes() is hashable as key in dict creatednodes = {}"""
-        if self.griddistance != None:
+        if self.griddistance != None: # setup distance values
             s = self.griddistance
             d = self.griddistance * 1.4142
             distances = [s,s,s,s,d,d,d,d]
 
-        print("this is start and endnode")
-        print(startnode)
-        print(endnode)
-        print("\n")
-        #print(sys.getsizeof(self))
-        iteration = 0
+        if startnode == endnode or startnode.nontraversable == True:
+            raise Exception("Start node not valid as either endnode or non traversable")           
+
+        startnode.foundminf = True # avoids that startnode will be considered as neighbour later
+        self.openlist = Openlist() # create instance of openlist
+
+        current = startnode # add first node to openlist
+        key = self.getkey(current.pos) # write first node to creatednodes
+        self.creatednodes[key] = current
+        
+        iteration = 0 # counter for search iterations
         while True: # iterate until all end was found or all nodes have been travelled and therefore no path is possible
             iteration = iteration + 1
-            
-            #print("iteration:" + str(iteration) + "\n")
-            """
-            print("this is current node:")
-            print(current)
-            print(current.pos)
-            print("\n")
-            """
+
             neighbourpositions = self.getneighbourpos(current) # list of all potential neighbour position as (x,y) tuple, including not possible ones; future: extend above to polygons in vectordataformat
             nodes, currentdistances = self.getnodes(neighbourpositions, distances) # all possible nodes, excluding non traversable
-            """
-            print("these are new nodes from getnodes and will be iterated over")
-            print(nodes)
-            print("\n")
-            """
             newopennodes = [] # during iteration save nodes here for append to sortedList; in loop for reset
+
             for i,node in enumerate(nodes):
                 g = self.getg(current,node,currentdistances[i]) # get g using grid distance
                 h = self.geth(node,endnode) # heuristics function to calculate distance to enddnode
@@ -288,35 +267,24 @@ class AStar:
                 key = self.getkey(node.pos)
                 self.creatednodes[key] = node # add node to creatednodes for lookup in next iteration
                 newopennodes.append(node) # fill temporary list of opennodes                  
-            """
-            print("these nodes should be added now to openlist: ")
-            print(newopennodes)
-            print("\n")
-            """
+            
             self.openlist.addmultiple(newopennodes) # add list of opennodes, because open were removed earlier and new have been created
-            """
-            print("new iteration")
-            print("these are in openlist")
-            self.openlist.print()
-            print("\n")
-            """
+            
             current = self.openlist.poplowest() # get next 'current' node with lowest fscore
             current.foundminf = True
             self.creatednodes[self.getkey(current.pos)] = current # replace in creatednodes so node can be skipped later with .foundminf = True
 
-            try:
-                #print(self.getkey(endnode.pos))
-                endnode = self.creatednodes[self.getkey(endnode.pos)]
+            try: # try to find, if endnode was reached
+                endnode = self.creatednodes[self.getkey(endnode.pos)] # if node with position of endnode was created, path was found
                 print("Found endnode at iteration: " + str(iteration))
                 break # break while loop
             except:
                 pass
 
             if nodes == []: # if even only one node is not explored yet, it might lead to the end
-                raise Exception("No path is possible")                
-        
+                raise Exception("No path is possible")    
         return self.tracepath(startnode,endnode)
-        print("this is path from startnode to endnode")
+        
 
 def main(directory,griddistance,startpos,endpos):
     extractedcsv = data_prep.getcsv(directory) # get all csv filepaths in directory
