@@ -65,7 +65,7 @@ def datareduction(fulldata, startpos, endpos = None, filterdistance: float = Non
     if filterdistance is not None: # filter data around one point
         safetydistance = filterdistance
     else: # filter data around two points
-        safetydistance = safetyfactor * (abs(startpos[0] - endpos[0]) + abs(startpos[1] - endpos[1]))  # Using indices 0 and 1 for x and y
+        safetydistance = safteyfactor * (abs(startpos[0] - endpos[0]) + abs(startpos[1] - endpos[1]))  # Using indices 0 and 1 for x and y
         print("Considered safteymargin to find optimal path: " + str(safetydistance))
     
     cutx = fulldata[(fulldata[:, 0] > (startpos[0] - safetydistance)) & (fulldata[:, 0] < (startpos[0] + safetydistance))] # Filter x (index 0) column
@@ -118,6 +118,7 @@ def main():
     amount = 100
     extracted = extractfiles(directory,amount) # extract .zip files
     extractedcsv = createcsv(extracted) # create .csv files
+
 
 if __name__ == "__main__":
     main()
