@@ -7,7 +7,7 @@ from sortedcontainers import SortedList
 import data_prep
 import sys
 from scipy.spatial import distance
-import visualize
+import matplotlib.animation as animation
 
 """ implementation of A* algorithm, partly object oriented
     - takes pandas import, this allows for decent data reduction prior to the actual search algorithm 
@@ -80,18 +80,18 @@ class AStar:
         self.ncounter = 0
 
 
-    def closestnode(self, pos: np.array|list, griddistance) -> Node: # find closest values to [x,y] nparray in the dataset and return node    
+    def closestnode(self, pos, griddistance) -> Node: # find closest values to [x,y] nparray in the dataset and return node    
         if griddistance == None:
             raise Exception("closestnode not implemented for non-grid data yet")
         if type(pos) == list:
             pos = np.array(pos) 
 
-        for searchd in griddistance: # prefilter to reduce distance calc, future: replace with list or logarithmic growing fnct
-            filtered = data_prep.datareduction(self.dataset,pos,filterdistance=searchd)
-            if filtered.any(): break # break when any points within [x+-searchd,y+-searchd] rectangle
+        for searched in [griddistance]: # prefilter to reduce distance calc, future: replace with list or logarithmic growing fnct
+            filtered = data_prep.datareduction(self.dataset,pos,filterdistance=searched)
+            if filtered.any(): break # break when any points within [x+-searched,y+-searched] rectangle
 
         if filtered.size == 0: # if no point was found in dataset
-            print("no point found within filterdistance: " + str(searchd))
+            print("no point found within filterdistance: " + str(searched))
             print("consider changing start position or dataset.")
             return
 
@@ -100,7 +100,7 @@ class AStar:
             filtered
 
         else:
-            distances = np.array([[distance.euclidean(pos,point)] for point in filtered]) # create row vector with hypot lenghts
+            distances = np.array([[distance.euclidean(pos,point[0:2])] for point in filtered]) # create row vector with hypot lenghts
             filtered = np.concatenate((filtered,distances),1) # add distances to the columns in nparray
             lowestindex = filtered[:, 3].argsort(0)[0] # sort the distances (third) column and return corresponding lowestindex
         return Node(filtered[lowestindex,0:3]) # return lowest
@@ -217,10 +217,34 @@ class AStar:
             current = node
         return reversed(tracepath)
 
+    
+    def visualize(self,path = None, fulldata = None, showsearched = False):
+        nodelist = [] # explored nodes
+        if showsearched:
+            for node in self.creatednodes.values(): # for all nodes in creatednodes
+                if not node.nontraversable: # filter out only traversable nodes
+                    nodelist.append([node.pos]) # add all positions to a n*3 array
+            creatednodes = np.concatenate(nodelist)
+        pathlist = [] 
+        if type(path) != bool: # when plotting path
+            for node in path:
+                pathlist.append([node.pos])
+            patharray = np.concatenate(pathlist)    
+        
+        if type(fulldata) != None:
+            plt.scatter(fulldata[:, 0], fulldata[:, 1])
+        plt.scatter(self.dataset[:, 0],self.dataset[:, 1],c = self.dataset[:, 2],cmap = 'viridis')
+        if showsearched:
+            plt.scatter(creatednodes[:, 0],creatednodes[:, 1],c = 'white') # plot path in red on top
+        if type(path) != None:
+            plt.plot(patharray[:, 0],patharray[:, 1],c = 'red') # plot path in red on top
+        ax = plt.gca() # get current axis of plot
+        ax.set_aspect('equal', adjustable='box')
+        plt.show()
 
-    def search(self, startpos: list|np.array, endpos: list|np.array) -> list: # main search algorithm
-        startnode = self.closestnode(startpos) # returns closest point in x,y dimensions
-        endnode = self.closestnode(endpos)
+    def search(self, startpos, endpos) -> list: # main search algorithm
+        startnode = self.closestnode(startpos,self.griddistance) # returns closest point in x,y dimensions
+        endnode = self.closestnode(endpos,self.griddistance)
         startnode.gscore = 0
         startnode.fscore = 0 # not really relevant as will be explored first anyways 
 
@@ -241,7 +265,7 @@ class AStar:
         
         iteration = 0 # counter for search iterations
         while True: # iterate until all end was found or all nodes have been travelled and therefore no path is possible
-            iteration = iteration + 1
+            iteration += 1
 
             neighbourpositions = self.getneighbourpos(current) # list of all potential neighbour position as (x,y) tuple, including not possible ones; future: extend above to polygons in vectordataformat
             nodes, currentdistances = self.getnodes(neighbourpositions, distances) # all possible nodes, excluding non traversable
@@ -291,29 +315,19 @@ def main(directory,griddistance,startpos,endpos):
     data = data_prep.dataimport(extractedcsv) # get numpy objects of the .csv files
     print("data rows: " + str(data.size))
 
-    reduceddata = data_prep.datareduction(data,startpos,endpos) # reduce dataset for data
+    reduceddata = data_prep.datareduction(data,startpos,endpos,safteyfactor=2) # reduce dataset for data
     print("reduced dataset for A*: " + str(reduceddata.shape))
     
     astar = AStar(reduceddata,griddistance=griddistance) # give back AStar object, where we next call search method on it
     path = astar.search(startpos,endpos) # returns list of nodes
     
-    nodelist = []
-    for node in astar.creatednodes.values(): # for all nodes in creatednodes
-        if not node.nontraversable: # filter out only traversable nodes
-            nodelist.append([node.pos]) # add all positions to a n*3 array
-    creatednodes = np.concatenate(nodelist)
-    
-    pathlist = []
-    for node in path:
-        pathlist.append([node.pos])
-    patharray = np.concatenate(pathlist)
-    
-    visualize.plotinoriginal(data,reduceddata,)
+    astar.visualize(path,fulldata = data, showsearched = True)
+    pass
 
 if __name__ == "__main__":
     # Test stuff here, not active when importing this code in other script
     testdirectory = r'C:\Users\ZOJSTROE\OneDrive - Carl Zeiss AG\Studium\T3100 - Studienarbeit\Karten\Karte_Garmisch'
     griddistance = 5
     startpos = [637212,5264996]
-    endpos = [637232,5264997]
+    endpos = [637400,5265200]
     main(testdirectory,griddistance,startpos,endpos)
