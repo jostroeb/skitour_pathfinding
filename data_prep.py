@@ -59,14 +59,13 @@ def getcsv(directory): # get all csv filepaths in directory
 
 
 # reduces data, either around a two points or within a given distance filterdistance
-def datareduction(fulldata, startpos: np.array|list, endpos: np.array|list = None, filterdistance: float = None) -> np.array:
+def datareduction(fulldata, startpos, endpos = None, filterdistance: float = None,safteyfactor = 1) -> np.array:
     if type(endpos) is None and filterdistance is None:
         raise Exception("Either endpos or filterdistance has to be given")
     if filterdistance is not None: # filter data around one point
         safetydistance = filterdistance
     else: # filter data around two points
-        safetysfactor = 1
-        safetydistance = safetysfactor * (abs(startpos[0] - endpos[0]) + abs(startpos[1] - endpos[1]))  # Using indices 0 and 1 for x and y
+        safetydistance = safetyfactor * (abs(startpos[0] - endpos[0]) + abs(startpos[1] - endpos[1]))  # Using indices 0 and 1 for x and y
         print("Considered safteymargin to find optimal path: " + str(safetydistance))
     
     cutx = fulldata[(fulldata[:, 0] > (startpos[0] - safetydistance)) & (fulldata[:, 0] < (startpos[0] + safetydistance))] # Filter x (index 0) column
