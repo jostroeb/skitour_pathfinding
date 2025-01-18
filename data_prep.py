@@ -4,6 +4,7 @@ from os import path
 import pandas as pd
 import matplotlib as plt
 import numpy as np
+import sys
 
 # function takes path and optional amount of files to be extracted starting from top, not looking at previously extracted files 
 # namereturn == True returns a list of all the processed files 
@@ -27,7 +28,8 @@ def extractfiles(directory,amount = None):
                     namelist.extend([path.join(directoryraw,fileending)]) # extend namelist with full path for each zipfile
     return namelist
     
-def createcsv(fileslist):
+
+def createcsv(fileslist): # create .csv files from .txt files
     namelist = []
     for file in fileslist:
         rawfile = r"{}".format(file)
@@ -46,17 +48,7 @@ def createcsv(fileslist):
                     csvfile.writelines(content) # writes each read line
     return namelist    
 
-# move distance is used to calculate the cost estimation h, so a shorter path is preferred
-def movedistance(a,b): # accepts two tuples of type (x,y)
-    x = abs(a[0] - b[0])
-    y = abs(a[1] - b[1])
-    max = max(x,y)
-    min = min(x,y)
-    linear = max - min
-    diagonal = min * 1.4142 # aprox. sqrt(2)
-    return linear + diagonal
-        
-        
+
 def getcsv(directory): # get all csv filepaths in directory
     extractedcsv = []
     for f in listdir(directory): # listdir returns filepaths
@@ -65,76 +57,68 @@ def getcsv(directory): # get all csv filepaths in directory
             extractedcsv.append(path.join(directory,f))
     return extractedcsv
 
-def datareduction(fulldata,start,end = pd.DataFrame(), filterdistance = None): # reduces pandas dataset to geographical rectangle with size ...
-    if end.empty and (filterdistance == None):
-        print("exceptionnnnnnnnnnnnnnnnn")
-        raise Exception("Give either end or filterdistance")
-    if filterdistance != None: # ... at a fixed distance around start
-        print("filterdistanceeeeeeee")
-        print(filterdistance)
-        safetydistance = filterdistance
-    else: # ... calculated from two positions with saftey margin
-        print("elseeeeeeeeeeeeee")
-        safteyfactor = 1 # keep low (data reduction) but high enough (so optimality is realistic)
-        safetydistance = safteyfactor * (abs(start['x'] - end['x']) + abs(start['y'] - end['y'])) # determine Manhattan distance
-        print(safetydistance)
-    print("a")
-    cutx = fulldata[(fulldata['x'] > (start['x'] - safetydistance)) & (fulldata['x'] < (start['x'] + safetydistance))] # filter x coordinate
-    print(cutx.head)
-    print("b")
-    reduceddata = cutx[(cutx['y'] > (start['y'] - safetydistance)) & (cutx['y'] < (start['y'] + safetydistance))] # filter y coordinate
-    print(reduceddata.head)
-    return reduceddata
-    #cutx.info()
-    #cuty.info()
-    #fulldata.info()
 
-def plotinoriginal(fulldata,reduceddata):
-    plt.scatter(fulldata['x'], fulldata['y'])
-    plt.scatter(reduceddata['x'],reduceddata['y'],c = reduceddata['z'],cmap = 'viridis')
-    #data.plot(x='x', y='y', c='red', kind='scatter')
-    #reduceddata.plot(x='x', y='y', c='z', colormap='viridis', kind='scatter')
-    ax = plt.gca()
-    ax.set_aspect('equal', adjustable='box')
-    plt.show()
+# reduces data, either around a two points or within a given distance filterdistance
+def datareduction(fulldata, startpos: np.array|list, endpos: np.array|list = None, filterdistance: float = None) -> np.array:
+    if type(endpos) is None and filterdistance is None:
+        raise Exception("Either endpos or filterdistance has to be given")
+    if filterdistance is not None: # filter data around one point
+        safetydistance = filterdistance
+    else: # filter data around two points
+        safetysfactor = 1
+        safetydistance = safetysfactor * (abs(startpos[0] - endpos[0]) + abs(startpos[1] - endpos[1]))  # Using indices 0 and 1 for x and y
+        print("Considered safteymargin to find optimal path: " + str(safetydistance))
+    
+    cutx = fulldata[(fulldata[:, 0] > (startpos[0] - safetydistance)) & (fulldata[:, 0] < (startpos[0] + safetydistance))] # Filter x (index 0) column
+    reduceddata = cutx[(cutx[:, 1] > (startpos[1] - safetydistance)) & (cutx[:, 1] < (startpos[1] + safetydistance))] # Filter y (index 1) column 
+    return reduceddata
+
+
+def movedistance(a,b): # accepts two tuples of type (x,y), approximate
+    x = abs(a[0] - b[0])
+    y = abs(a[1] - b[1])
+    max = max(x,y)
+    min = min(x,y)
+    linear = max - min
+    diagonal = min * 1.4142 # aprox. sqrt(2)
+    return linear + diagonal
 
 """create function lawinenscore _____________________"""
-def lawinenscore(data): #create function
+def lawinenscore(data): # add lawinenscore in some area, for test
     lawine = []
-    pd.DataFrame()
+    
 
-def extractor():
+def extractor(): # extraction tool for user input
     directory = input("Write directory without brackets e.g. [C:\Programs\Test\]: ")
     amount = int(input("Export first x files without checking if they already exist: "))
     extracted = extractfiles(directory,amount) # True will return a list of extracted files
-    #print(extracted)
-    return createcsv(extracted)
-    #print("converted .csv files" + extractedcsv)
+    return createcsv(extracted) # return list of createdcsv files
 
-def dataimport(list):
-    #input = geopandas.read_file(list[0])
-    df = pd.read_csv(list[0],names=['x','y','z'],sep=';',dtype=np.float32)
-    frames = [pd.read_csv(list[i],names=['x','y','z'],sep=';',dtype=np.float32) for i in range(0,len(list))]
-#    for i in range(0,len(list)):
-#        print(i)
-#        input = pd.read_csv(list[i],names=['x','y','z'],sep=';',dtype=np.float32)
-        #print(list[0])
-        #input.info()
-    df = pd.concat(frames, ignore_index=True)
-    #full.drop(-9999.00)
-    #input.concat(input2,'outer')
-    df.info()
-    dfsmall = df[df['z'] > -9998.00]
-    dfsmall.info()
-    df.head()
-    return dfsmall
+
+def dataimport(file_list) -> np.array: 
+    data_arrays = []  # Save data arrays here
+    for file in file_list:
+        # Load the data from .csv file
+        data = np.genfromtxt(file, delimiter=';', dtype=np.float64)  # Read only the first three columns
+        data_arrays.append(data)
+    
+    combined_data = np.concatenate(data_arrays)  # Combine all data arrays
+    
+    filtered_data = combined_data[combined_data[:,2] > -9998.00]  # Filter rows where the third column (z) is greater than -9998.00
+
+    # Print the information about the combined and filtered data
+    print(f"Combined data shape: {combined_data.shape}")
+    print(f"After removing values outside of country borders: {filtered_data.shape}")
+
+    # Return the filtered data as a np array
+    return filtered_data
+
 
 def main():
     directory = r'C:\Users\ZOJSTROE\OneDrive - Carl Zeiss AG\Studium\T3100 - Studienarbeit\Karten\Karte_Garmisch'
     amount = 100
-    extracted = extractfiles(directory,amount) # True will return a list of extracted files
-    extractedcsv = createcsv(extracted)
-    dataimport(extractedcsv)
+    extracted = extractfiles(directory,amount) # extract .zip files
+    extractedcsv = createcsv(extracted) # create .csv files
 
 if __name__ == "__main__":
     main()
