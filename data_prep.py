@@ -83,8 +83,32 @@ def movedistance(a,b): # accepts two tuples of type (x,y), approximate
     return linear + diagonal
 
 """create function lawinenscore _____________________"""
-def lawinenscore(data): # add lawinenscore in some area, for test
-    lawine = []
+def lawinenscore(data: np.array, griddistance: float, startpoints: list, size: int, score) -> np.array:
+    # Initialize the fourth column to 1
+    if data.shape[1] < 4:
+        data = np.hstack((data, np.ones((data.shape[0], 1))))  # Add a fourth column initialized to 1
+
+    # Create a set to store the positions that will get a score of 2
+    lawinen_positions = set()
+
+    # Calculate lawinenscore positions for each startpoint
+    for startpoint in startpoints:
+        for shift in [0, griddistance * size]:  # For all y lawinen points
+            # Create lawinen rectangle x values
+            for step in range(0, size * griddistance + 1, griddistance):
+                lawinen_positions.add((startpoint[0] + step, startpoint[1] + shift))
+        
+        for shift in [0, griddistance * size]:  # For all x lawinen points
+            # Create lawinen rectangle y values
+            for step in range(0, size * griddistance + 1, griddistance):
+                lawinen_positions.add((startpoint[0] + shift, startpoint[1] + step))
+
+    for i in range(data.shape[0]): # updating dataset with higher lawinenscores than 1
+        point = (data[i, 0], data[i, 1])  # create an xy tuple for every line in dataset
+        if point in lawinen_positions:
+            data[i, 3] = score  # Set the fourth column to 2 if the point is in lawinen_positions
+
+    return data
     
 
 def extractor(): # extraction tool for user input
@@ -116,7 +140,7 @@ def dataimport(file_list) -> np.array:
 def main():
     directory = r'C:\Users\ZOJSTROE\OneDrive - Carl Zeiss AG\Studium\T3100 - Studienarbeit\Karten\Karte_Garmisch'
     amount = 100
-    extracted = extractfiles(directory,amount) # extract .zip files
+    extracted = extractfiles(directory) # extract .zip files
     extractedcsv = createcsv(extracted) # create .csv files
 
 
