@@ -365,7 +365,9 @@ if __name__ == "__main__":
     startpos = [650428,5253866] # zugspitze gipfeltour
     endpos = [650299,5254362]
 
-    startpos = [643574,5265843] # kreuzspitze niedriger
+
+    startpos = [643839,5265897] # kreuzspitze niedriger
+    startpos = [643504,5266764] # kreuzspitze noch niedriger
     endpos = [643921,5265641] # kreuzspitze
 
     #startpos = [650428,5253866] # kleiner testlauf zugspitze
