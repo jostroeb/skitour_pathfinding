@@ -2,20 +2,9 @@ import numpy as np
 import data_prep
 import matplotlib.pyplot as plt
 from math import inf
-import math
 from sortedcontainers import SortedList
 import data_prep
-import sys
 from scipy.spatial import distance
-import matplotlib.animation as animation
-import utm
-
-""" implementation of A* algorithm, partly object oriented
-    - takes pandas import, this allows for decent data reduction prior to the actual search algorithm 
-    - search algorithm uses heapq for the iterated list
-"""
-
-
 
 class Node:
 
@@ -33,8 +22,9 @@ class Node:
 
     def __lt__(self, compareto): # implements a less than '<' method, which is required for the sortedlist add
         return self.fscore < compareto.fscore
-    """removeeeeeeeeeeeeeee following"""
-    #def __eq__(self, compareto):
+
+    #def __eq__(self, compareto): # this doesn't resolve remove exception
+    # be aware the list has to be have an absolute order, so __lt__ and __eq__ must not rely solely on different arguments !!!
     #    return self.fscore == compareto.fscore and self.pos[0] == compareto.pos[0] and self.pos[1] == compareto.pos[1] 
     
 
@@ -44,13 +34,8 @@ class Openlist:
         self.list = SortedList()
         self.exceptcounter = []
 
-    def addmultiple(self,nodes):
-        #print("now add these nodes to openlist")
-        #print(nodes)
+    def addmultiple(self,nodes): # to add multiple nodes to openlist
         self.list.update(nodes)
-
-    #def add(self,node):
-    #    self.list.add(node)
 
     def count(self,node):
         self.list.count(node)
@@ -69,10 +54,6 @@ class Openlist:
     def len(self):
         return len(self.list)
 
-    def contains(self, node): # check if position is already included in list
-        pass # not implemented yet
-        
-
     def print(self): # debugging method
         for node in self.list:
             print(node)
@@ -87,6 +68,7 @@ class AStar:
         self.creatednodes = {} # dict object creatednodes, save all created notes here, key is position of a node
         self.max_avalanche_score = 5
         self.ncounter = 0
+        self.vmax = 20
 
 
     def closestnode(self, pos, griddistance) -> Node: # find closest values to [x,y] nparray in the dataset and return node    
@@ -112,47 +94,13 @@ class AStar:
             filtered = np.concatenate((filtered,distances),1) # add distances to the columns in nparray
             lowestindex = filtered[:, 3].argsort(0)[0] # sort the distances (third) column and return corresponding lowestindex
         return Node(filtered[lowestindex,0:3]) # return lowest
-    
-    
-    def bias(self,slope): # bias tries to improve path for a comfortable walk
-        if slope > 0.4663: return 1
-        else: return 1.1
+        
 
- 
-    def getg(self,node1,node2,currentdistance = None,bias = True): # set bias = False for time calculation of finished route
-        if currentdistance == None: # true for non-grid data
-            spatialdistance = node1.pos - node2.pos # for future implementation of vector data
-            spatialdistance = (abs(spatialdistance[0]),abs(spatialdistance[1]))
-            raise Exception("getg not implemented yet for non-grid data")
-            
-        else:
-            b_law = 1 + 0.1* (node2.avalanche_score - 1)
-            th = currentdistance * 0.72 # equals distance * 3600s/h / 5000m/h, time horizontal move
-            delta_z = node2.pos[2] - node1.pos[2]
-            if delta_z >= 0: # for going uphill
-                slope = delta_z / currentdistance # positive for going uphill
-                if slope > 1: k = 3
-                else: k = 1
-                tv = delta_z * 9.0000 # equals delta_z [m] * 3600s/h / 400m/h, time uphill vertical move
-                if bias: 
-                    edgeweight = b_law * k * self.bias(slope) * (0.5 * min(th,tv) + max(th,tv)) # with all bias included
-                else:
-                    edgeweight = k * (0.5 * min(th,tv) + max(th,tv)) # only for calculation of exact pathlength
-            else:
-                #distance.euclidean(node1.pos[0:3],node2.pos[0:3])
-                #v0 = node1.v * 0.9
-                
-                
-                edgeweight = abs(delta_z * 3.6) # invalid schmudlach model; equals delta_z * 3600s/h / 1000m/h, time vertical downhill move
-            return node1.gscore + edgeweight
+    def getkey(self, array): # converts array to tuple to make it hashable and therefore usable as a key in a dict
+        arr = array[0:2] # get x,y values
+        key = tuple(arr)
+        return key
 
-    def geth(self,node1,endnode): # heuristics method for start to end distance(cannot overestimate, therefore)
-        if type(self.griddistance) == None:
-            raise Exception("Distance estimate for non-grid data not implemented yet")
-        else:
-            horizontaldistance = data_prep.movedistance(node1.pos,endnode.pos) # movedistance is shortest path in 8-grid world, otherwise use scipy distance
-            h = self.getg(node1,endnode,currentdistance = horizontaldistance, bias = True)
-            return h # for h=0 runs as Dijkstra
 
     def getneighbourpos(self, currentnode): # get traversable neighbours when given a node
         dis = self.griddistance
@@ -168,31 +116,9 @@ class AStar:
                 #print(newpos)
                 neighbourpos.append(newpos)
             return neighbourpos # 8list with neighbourpos 
-    """
-            pd = self.dataset[(self.dataset['x'] == newpos[0]) & (self.dataset['y'] == newpos[1])] # wrongggg first filter x, then filter y
-            if pd:
-                print("neighbour not existent")
-                continue # skips incase pd is not existent
-            pd_z = pd['z']
-            delta_z = pd_z - currentnode.z
-            if (diagonal == 1 & 1 < delta_z) or (diagonal != 1 & 1.4142 < delta_z): # skip nodes with slope > 100%
-                print("neighbour too steep")
-                continue
-            neighbour_z = pd['z'] # selects z column of pd
-            g = self.getg(currentnode,pd_z,diagonal) # returns weight of neighbournode
-            f = g + movedistance(currentnode.pos,newpos) # estimate
-        #avoid avalanche_ risk zone in g value examination
-            return neighbourpos # find neighbours and add to openlist
-    """
 
-    def getkey(self, array): # converts array to tuple to make it hashable and therefore usable as a key in a dict
-        arr = array[0:2] # get x,y values
-        key = tuple(arr)
-        return key
 
-    
-    # get traversable, non closed nodes, save nodes on edge to creatednodes
-    def getnodes(self, neighbourpositions, distances = None): 
+    def getnodes(self, neighbourpositions, distances = None): # get traversable, non closed nodes, save nodes on edge to creatednodes
         if distances == None: # for future implementation
             raise Exception("Give distances for grid data or implement a new getnodes function for e.g. vectordata (better extend the existing one)")
         nodelist = []
@@ -224,7 +150,59 @@ class AStar:
             raise Exception("nodelist and distancelist have to be of equal length")
         return nodelist, distancelist # distancelist has same length as node list and contains corresponding x,y distances
     
-    
+
+    def bias(self,slope): # bias tries to improve path for a comfortable walk
+        if slope > 0.4663: return 1
+        else: return 1.1
+
+
+    def getg(self,node1,node2,currentdistance = None,bias = True): # set bias = False for time calculation of finished route
+        if currentdistance == None: # true for non-grid data
+            spatialdistance = node1.pos - node2.pos # for future implementation of vector data
+            spatialdistance = (abs(spatialdistance[0]),abs(spatialdistance[1]))
+            raise Exception("getg not implemented yet for non-grid data")
+            
+        else:
+            vneu = 0
+            b_law = 1 + 0.1* (node2.avalanche_score - 1) # bias for avalanche score
+            th = currentdistance * 0.72 # equals distance * 3600s/h / 5000m/h, time horizontal move
+            delta_z = node2.pos[2] - node1.pos[2]
+            if delta_z >= 0: # for going uphill
+                slope = delta_z / currentdistance # positive for going uphill
+                if slope > 1: k = 3
+                else: k = 1
+                tv = delta_z * 9.0000 # equals delta_z [m] * 3600s/h / 400m/h, time uphill vertical move
+                if bias: 
+                    edgeweight = b_law * k * self.bias(slope) * (0.5 * min(th,tv) + max(th,tv)) # with all bias included
+                else:
+                    edgeweight = k * (0.5 * min(th,tv) + max(th,tv)) # only for calculation of exact pathlength
+            else:
+                #"""
+                delta_z = abs(delta_z)
+                k = 1
+                eta = 0.95 # efficiency
+                v0 = node1.v # previous speed
+                delta_v = np.sqrt(18.62 * delta_z) # 2 * 9.81m/s^2 * deltaz from energy equation
+                delta_l = distance.euclidean(node1.pos[0:3],node2.pos[0:3]) 
+                vcurr = v0 + delta_v # current speed
+                if vcurr > 20:
+                    k = 3
+                vneu = min(eta * vcurr,self.vmax) # new speed
+                edgeweight = k * delta_l / min(vcurr,self.vmax)
+                #"""
+                #edgeweight = abs(delta_z * 3.6) # coarse schmudlach model; equals delta_z * 3600s/h / 1000m/h, time vertical downhill move
+            return (node1.gscore + edgeweight), vneu
+
+
+    def geth(self,node1,endnode): # heuristics method for start to end distance(cannot overestimate, therefore)
+        if type(self.griddistance) == None:
+            raise Exception("Distance estimate for non-grid data not implemented yet")
+        else:
+            horizontaldistance = data_prep.movedistance(node1.pos,endnode.pos) # movedistance is shortest path in 8-grid world, otherwise use scipy distance
+            h,x = self.getg(node1,endnode,currentdistance = horizontaldistance, bias = True)
+            return h # for h=0 runs as Dijkstra
+
+
     def tracepath(self,startnode: Node,endnode: Node) -> list: # follows path from end back to start through jumping to each nodes parent
         current = endnode
         tracepath = [current] # save list of nodes here
@@ -268,8 +246,7 @@ class AStar:
         ax = plt.gca() # get current axis of plot
         ax.set_aspect('equal', adjustable='box')
         plt.show()
-        #set_trace()
-        #pass
+
 
     def search(self, startpos, endpos,max_avalanche_score = 5) -> list: # main search algorithm
         self.max_avalanche_score = max_avalanche_score
@@ -281,7 +258,7 @@ class AStar:
         if self.griddistance != None: # setup distance values
             s = self.griddistance
             d = self.griddistance * 1.4142
-            distances = [s,s,s,s,d,d,d,d]
+            distances = [s,s,s,s,d,d,d,d] 
 
         if startnode == endnode or startnode.nontraversable == True:
             raise Exception("Start node not valid as either endnode or non traversable")           
@@ -291,20 +268,16 @@ class AStar:
 
         key = self.getkey(startnode.pos) # write first node to creatednodes
         self.creatednodes[key] = startnode
-        #key = self.getkey(endnode.pos) # exclude, as it will be found like this
-        #self.creatednodes[key] = endnode
         current = startnode # add first node to openlist
 
         iteration = 0 # counter for search iterations
         while True: # iterate until all end was found or all nodes have been travelled and therefore no path is possible
-            
-
             neighbourpositions = self.getneighbourpos(current) # list of all potential neighbour position as (x,y) tuple, including not possible ones; future: extend above to polygons in vectordataformat
             nodes, currentdistances = self.getnodes(neighbourpositions, distances) # all possible nodes, excluding non traversable
             newopennodes = [] # during iteration save nodes here for append to sortedList; in loop for reset
 
             for i,node in enumerate(nodes):
-                g = self.getg(current,node,currentdistances[i]) # get g using grid distance
+                g, v = self.getg(current,node,currentdistances[i]) # get g using grid distance
                 h = self.geth(node,endnode) # heuristics function to calculate distance to enddnode
                 new_f = g + h
                 if node.inopen:
@@ -313,6 +286,7 @@ class AStar:
                         node.gscore = g
                         node.fscore = new_f
                         node.parent = current.pos
+                        node.v = v
                         newopennodes.append(node) # remove or else adds double duplicates
                     else: 
                         continue # nothing has to be changed about node
@@ -322,6 +296,7 @@ class AStar:
                     node.fscore = new_f # for new nodes no fscore existent to compare to
                     node.parent = current.pos # set parent only, if node was not existent before
                     node.inopen = True
+                    node.v = v
 
                 key = self.getkey(node.pos)
                 self.creatednodes[key] = node # add node to creatednodes for lookup in next iteration
@@ -334,10 +309,6 @@ class AStar:
             current.foundminf = True
             self.creatednodes[self.getkey(current.pos)] = current # replace in creatednodes so node can be skipped later with .foundminf = True
 
-            if iteration > 1:
-                #self.visualize(showsearched=True)
-                pass
-
             if self.getkey(current.pos) == self.getkey(endnode.pos): # if endnnode was found
                 print("Found endnode at iteration: " + str(iteration))
                 break # break while loop
@@ -348,10 +319,23 @@ class AStar:
         return self.tracepath(startnode,current)
         
 
+    def findpath(self,startpos,endpos):
+        max_avalanche_score = 1
+        while True: # runs algorithm until 
+            if max_avalanche_score > 5:
+                    raise Exception("No path was found at highest avalanche level")
+            try:
+                path = self.search(startpos,endpos,max_avalanche_score = max_avalanche_score) # returns list of nodes
+                return path
+            except:
+                max_avalanche_score += 1
+                pass
+
+
 def main(directory,griddistance,startpos,endpos):
     extractedcsv = data_prep.getcsv(directory) # get all csv filepaths in directory
     data = data_prep.dataimport(extractedcsv) # get numpy objects of the .csv files
-    #print("data rows: " + str(data.size))
+    print("data rows: " + str(data.size))
 
     reduceddata = data_prep.datareduction(data,startpos,endpos,safteyfactor=2) # reduce dataset for data
     print("reduced dataset for A*: " + str(reduceddata.shape))
@@ -359,26 +343,30 @@ def main(directory,griddistance,startpos,endpos):
     reduceddata = data_prep.lawinenscore(reduceddata,griddistance = griddistance, startpoints = [[637077.5,5264987.5],[637177.5,5264997.5]],size = 6)
     
     astar = AStar(reduceddata,griddistance=griddistance) # give back AStar object, where we next call search method on it
-    path = astar.search(startpos,endpos,max_avalanche_score = 1) # returns list of nodes
 
+    path = astar.search(startpos,endpos)
+    #print("pathlength:" + len(path))
+    pathdata = path
+    #path = astar.findpath(startpos,endpos)
     data_prep.export_to_kml(path, 'waypoints.kml')
-    astar.visualize(path, fulldata=data)
-
-    
-
+    astar.visualize(path=pathdata,fulldata = data)
 
 
 if __name__ == "__main__":
     # Test stuff here, not active when importing this code in other script
     testdirectory = r'C:\Users\ZOJSTROE\OneDrive - Carl Zeiss AG\Studium\T3100 - Studienarbeit\Karten\Karte_Garmisch_full'
     griddistance = 5
-    startpos = [654632,5256010] # start tour osterfelderkopf - alpspitze
-    endpos = [654450,5254955] # end tour osterfelderkopf - alpspitze
+
+    #startpos = [654632,5256010] # start tour osterfelderkopf - alpspitze
+    #endpos = [654450,5254955] # end tour osterfelderkopf - alpspitze
     #endpos = [654437,5255803] # small tour osterfelderkopf - seitlicher hügel
     #endpos = [654637,5255993] # small
 
-    #startpos = [650428,5253866] # zugspitze gipfeltour
-    #endpos = [650299,5254362]
+    startpos = [650428,5253866] # zugspitze gipfeltour
+    endpos = [650299,5254362]
+
+    startpos = [643574,5265843] # kreuzspitze niedriger
+    endpos = [643921,5265641] # kreuzspitze
 
     #startpos = [650428,5253866] # kleiner testlauf zugspitze
     #endpos = [650400,5253840]
