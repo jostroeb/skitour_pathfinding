@@ -5,6 +5,8 @@ import pandas as pd
 import matplotlib as plt
 import numpy as np
 import sys
+import simplekml
+import utm
 
 # function takes path and optional amount of files to be extracted starting from top, not looking at previously extracted files 
 # namereturn == True returns a list of all the processed files 
@@ -76,14 +78,14 @@ def datareduction(fulldata, startpos, endpos = None, filterdistance: float = Non
 def movedistance(a,b): # accepts two tuples of type (x,y), approximate
     x = abs(a[0] - b[0])
     y = abs(a[1] - b[1])
-    max = max(x,y)
-    min = min(x,y)
-    linear = max - min
-    diagonal = min * 1.4142 # aprox. sqrt(2)
+    maxval = max(x,y)
+    minval = min(x,y)
+    linear = maxval - minval
+    diagonal = minval * 1.4142 # aprox. sqrt(2)
     return linear + diagonal
 
 """create function lawinenscore _____________________"""
-def lawinenscore(data: np.array, griddistance: float, startpoints: list, size: int, score) -> np.array:
+def lawinenscore(data: np.array, griddistance: float, startpoints: list, size: int, score = 2) -> np.array:
     # Initialize the fourth column to 1
     if data.shape[1] < 4:
         data = np.hstack((data, np.ones((data.shape[0], 1))))  # Add a fourth column initialized to 1
@@ -137,10 +139,29 @@ def dataimport(file_list) -> np.array:
     return filtered_data
 
 
+def export_to_kml(path, filename):
+    kml = simplekml.Kml()
+    kml.document.name = "Path"
+
+    #print(path)
+
+    waypoints = []
+    for i,node in enumerate(path): # be aware, xyz are reversed due to reversepath operation!!!!
+        lat,lon = utm.to_latlon(node.pos[0],node.pos[1],32,'N') # convert nparray to latlon
+        point = (lon,lat)
+        if i == 0: firstpoint = point
+        waypoints.append(point)
+
+    kml.newpoint(name="Start",coords=[firstpoint]) # create startpoint
+    kml.newlinestring(name="Skitour",coords=waypoints) # create path
+    kml.newpoint(name="Ende",coords=[point]) # create endpoint from last point value
+
+    kml.save("path.kml")
+
 def main():
     directory = r'C:\Users\ZOJSTROE\OneDrive - Carl Zeiss AG\Studium\T3100 - Studienarbeit\Karten\Karte_Garmisch'
     amount = 100
-    extracted = extractfiles(directory) # extract .zip files
+    extracted = extractfiles(directory,amount) # extract .zip files
     extractedcsv = createcsv(extracted) # create .csv files
 
 
