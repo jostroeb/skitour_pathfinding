@@ -143,8 +143,6 @@ def export_to_kml(path, filename):
     kml = simplekml.Kml()
     kml.document.name = "Path"
 
-    #print(path)
-
     waypoints = []
     for i,node in enumerate(path): # be aware, xyz are reversed due to reversepath operation!!!!
         lat,lon = utm.to_latlon(node.pos[0],node.pos[1],32,'N') # convert nparray to latlon
