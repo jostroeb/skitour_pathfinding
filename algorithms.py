@@ -152,8 +152,8 @@ class AStar:
     
 
     def bias(self,slope): # bias tries to improve path for a comfortable walk
-        if slope > 0.4663: return 1
-        else: return 1.1
+        if slope <= 0.4663: return 1 # below 25°
+        else: return 2
 
 
     def getg(self,node1,node2,currentdistance = None,bias = True): # set bias = False for time calculation of finished route
@@ -165,13 +165,13 @@ class AStar:
         else:
             vneu = 0
             b_law = 1 + 0.1* (node2.avalanche_score - 1) # bias for avalanche score
-            th = currentdistance * 0.72 # equals distance * 3600s/h / 5000m/h, time horizontal move
+            th = currentdistance * 0.72 # equals distance * 3600s/h / 5000m/h, time horizontal move default 0.72
             delta_z = node2.pos[2] - node1.pos[2]
             if delta_z >= 0: # for going uphill
                 slope = delta_z / currentdistance # positive for going uphill
-                if slope > 1: k = 3
+                if slope > 0.46: k = 8 # default slope > 1: k = 5 
                 else: k = 1
-                tv = delta_z * 9.0000 # equals delta_z [m] * 3600s/h / 400m/h, time uphill vertical move
+                tv = delta_z * 3 # equals delta_z [m] * 3600s/h / 400m/h, time uphill vertical move default 9.0
                 if bias: 
                     edgeweight = b_law * k * self.bias(slope) * (0.5 * min(th,tv) + max(th,tv)) # with all bias included
                 else:
@@ -367,7 +367,7 @@ if __name__ == "__main__":
 
 
     startpos = [643839,5265897] # kreuzspitze niedriger
-    startpos = [643504,5266764] # kreuzspitze noch niedriger
+    #startpos = [643504,5266764] # kreuzspitze noch niedriger
     endpos = [643921,5265641] # kreuzspitze
 
     #startpos = [650428,5253866] # kleiner testlauf zugspitze
